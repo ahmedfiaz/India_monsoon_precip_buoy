@@ -83,7 +83,8 @@ class ProcessERA5(MaskIndianMonsoon):
         self.date_string=era5_file_path.split('/')[-1].split('Tq_')[1].split('.grib')[0]
         self.dir_out=dir_out
         self.filter_surf_press=filter_surf_press
-        self.save_dir=save_dir
+        self.save_file_path=save_dir+'layer_avg_thetae_{}.nc'.format(self.date_string)
+
 
         path=era5_file_path.split('era-5')[0]+era5_file_path.split('/')[-1].split('Tq_')[0]
         self.filsrf=self.modify_original_path_get_new_path(path,'surf',self.date_string)
@@ -101,6 +102,13 @@ class ProcessERA5(MaskIndianMonsoon):
         self.mask=dict(wg=self.ghats_mask, cmz=self.cmz_mask,
                        sei=self.sei_mask)
 
+    def check_era5_vars(self):
+        if os.path.isfile(self.save_file_path):
+            print('Pre-processed file exists')
+            self.era5_processing = False
+        else:
+            print('Processing required')
+            self.era5_processing = True
 
     @staticmethod
     def modify_original_path_get_new_path(path:str,var:str,date_string:str)->'new_path':
@@ -245,7 +253,7 @@ class ProcessERA5(MaskIndianMonsoon):
         self.thetae_sat_lft[key] = self.__lft_ave(thetae_sat,key)
 
     def save_netcdf(self):
-        file_path=self.save_dir+'layer_avg_thetae_{}.nc'.format(self.date_string)
+        file_path=self.save_file_path
         ds = {}
         for key in self.mask.keys():
             ds[key] = xr.Dataset(data_vars=dict(thetae_bl=self.thetae_bl[key].unstack(),
@@ -257,47 +265,19 @@ class ProcessERA5(MaskIndianMonsoon):
         save_netcdf_with_check(ds_new,file_path) ### using global method here
 
     def main(self):
-        self.extract_era5()
-        for key in self.mask.keys():
-            print(key)
-            self.flatten_mask_era5(key)
-            self.compute_thermo(key)
-            self.get_layer_averaged_thermo(key)
+        self.check_era5_vars()
+        if self.era5_processing:
+            self.extract_era5()
+            for key in self.mask.keys():
+                print(key)
+                self.flatten_mask_era5(key)
+                self.compute_thermo(key)
+                self.get_layer_averaged_thermo(key)
 
-        self.save_netcdf()
+            self.save_netcdf()
 
 
-    # def check_era5_vars(self):
-    #
-    #     ## save files ###
-    #     if self.SAVE_REGION == 'OCN':
-    #         region_str1 = 'ocn'
-    #         region_str2 = 'oceans'
-    #
-    #     elif self.SAVE_REGION == 'LND':
-    #         region_str1 = 'lnd'
-    #         region_str2 = 'land'
-    #
-    #     self.HBL_FILE = self.dir_out \
-    #                     + '/{}/hbl_{}/'.format(region_str1, region_str1) + "hbl_{}_{}.npy".format(region_str2,
-    #                                                                                               self.date_string)
-    #
-    #     self.HLFT_FILE = self.dir_out \
-    #                      + '/{}/hlft_{}/'.format(region_str1, region_str1) + "hlft_{}_{}.npy".format(region_str2,
-    #                                                                                                  self.date_string)
-    #
-    #     self.HSAT_LFT_FILE = self.dir_out \
-    #                          + '/{}/hsat_lft_{}/'.format(region_str1, region_str1) + "hsat_lft_{}_{}.npy".format(
-    #         region_str2, self.date_string)
-    #
-    #     cond1 = os.path.isfile(self.HBL_FILE)
-    #     cond2 = os.path.isfile(self.HLFT_FILE)
-    #     cond3 = os.path.isfile(self.HSAT_LFT_FILE)
-    #
-    #     if (not cond1 or not cond2) or (not cond3):
-    #         self.era5_processing = True
-    #     else:
-    #         self.era5_processing = False
+
 
 
 
